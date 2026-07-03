@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Voice AI</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0b1220;
+            margin: 0;
+            padding: 30px;
+            color: white;
+        }
+
+        .container {
+            width: 800px;
+            margin: auto;
+            background: #111827;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #38bdf8;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #startBtn {
+            background: #22c55e;
+        }
+
+        #stopBtn {
+            background: #ef4444;
+            color: white;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #facc15;
+        }
+
+        #response {
+            margin-top: 20px;
+        }
+
+        .card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .card h3 {
+            color: #38bdf8;
+            margin-bottom: 5px;
+        }
+
+        .card p {
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        pre {
+            background: #020617;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+            color: #38bdf8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h2>🎤 Voice AI Assistant</h2>
+
+        <button id="startBtn">Start Recording</button>
+        <button id="stopBtn" disabled>Stop Recording</button>
+
+        <p id="status">Idle</p>
+
+        <div id="response"></div>
+
+    </div>
+
+    <script>
+
+        let recorder;
+        let chunks = [];
+
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+
+        startBtn.onclick = async () => {
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true
+            });
+
+            recorder = new MediaRecorder(stream);
+            chunks = [];
+
+            recorder.ondataavailable = (e) => {
+                chunks.push(e.data);
+            };
+
+            recorder.onstop = uploadAudio;
+
+            recorder.start();
+
+            document.getElementById("status").innerText = "🎙️ Recording...";
+
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+        };
+
+        stopBtn.onclick = () => {
+            recorder.stop();
+
+            document.getElementById("status").innerText = "📤 Processing...";
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+
+        function formatText(text) {
+            if (!text) return "";
+            return text.replace(/\n/g, "<br>");
+        }
+
+        function renderAI(ai) {
+            return `
+                <div class="card">
+
+                    <h3>📌 Definition</h3>
+                    <p>${formatText(ai.definition)}</p>
+
+                    <h3>🎯 Use For</h3>
+                    <p>${formatText(ai.useFor)}</p>
+
+                    <h3>⚙️ How It Works</h3>
+                    <p>${formatText(ai.howItWorks)}</p>
+
+                    <h3>💻 Example</h3>
+                    <pre>${formatText(ai.example)}</pre>
+
+                    <h3>ℹ️ Additional Info</h3>
+                    <p>${formatText(ai.additionalInfo)}</p>
+
+                </div>
+            `;
+        }
+
+        async function uploadAudio() {
+
+            const blob = new Blob(chunks, { type: "audio/webm" });
+
+            const formData = new FormData();
+            formData.append("audio", blob, "voice.webm");
+
+            const response = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            document.getElementById("status").innerText = "✅ Completed";
+
+            try {
+
+                let parsed = typeof data.answer === "string"
+                    ? JSON.parse(data.answer)
+                    : data.answer;
+
+                document.getElementById("response").innerHTML = renderAI(parsed);
+
+            } catch (err) {
+                document.getElementById("response").innerHTML =
+                    "<p style='color:red'>Error parsing AI response</p>";
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
